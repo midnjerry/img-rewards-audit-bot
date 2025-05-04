@@ -1,0 +1,14 @@
+{
+    "name": "img-rewards-audit-bot",
+    "main": "listener.js",
+    "scripts": {
+      "start": "node listener.js"      
+    },
+    "dependencies": {
+      "@solana/web3.js": "^1.91.0",
+      "axios": "^1.6.8",
+      "sqlite3": "^5.1.6"
+    },
+    "type": "module"
+  }
+  
