@@ -2,13 +2,19 @@
     "name": "img-rewards-audit-bot",
     "main": "listener.js",
     "scripts": {
-      "start": "node listener.js"      
+        "build": "tsc",
+        "start": "npm run build & node dist/listener.js",
+        "audit": "node dist/audit.js",
+        "dev": "ts-node src/listener.ts"
     },
     "dependencies": {
-      "@solana/web3.js": "^1.91.0",
-      "axios": "^1.6.8",
-      "sqlite3": "^5.1.6"
+        "@solana/web3.js": "^1.91.0",
+        "axios": "^1.6.8",
+        "sqlite3": "^5.1.6"
     },
-    "type": "module"
-  }
-  
+    "devDependencies": {
+        "@types/node": "^22.15.11",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.8.3"
+    }
+}

@@ -1,0 +1,31 @@
+# Node modules
+node_modules/
+
+# TypeScript compiled output
+dist/
+build/
+
+# Environment variables
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# npm/yarn lock backups
+package-lock.json.*
+yarn.lock.*
+
+# TypeScript cache
+*.tsbuildinfo
