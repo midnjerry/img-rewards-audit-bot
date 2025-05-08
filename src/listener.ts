@@ -1,6 +1,8 @@
 import { getParsedTransaction, getTokenBalance, getTransactions } from './clients/solana.js';
-import { SOLANA_DECIMALS, MAX_SIGNATURES, REWARDS_WALLET, IMG_TOKEN_MINT } from './constants.js';
+import { SOLANA_DECIMALS, MAX_SIGNATURES, REWARDS_WALLET, IMG_TOKEN_MINT, DELAY_IN_MILLISECONDS } from './constants.js';
 import { ParsedInstruction } from '@solana/web3.js';
+import { sleep } from './utils/helpers.js';
+
 
 const knownSignatures = new Set<string>();
 
@@ -15,8 +17,8 @@ function isSystemTransferInstruction(instr: ParsedInstruction): instr is ParsedI
   };
 } {
   return instr.program === 'system' &&
-         typeof instr.parsed === 'object' &&
-         instr.parsed.type === 'transfer';
+    typeof instr.parsed === 'object' &&
+    instr.parsed.type === 'transfer';
 }
 
 function isHarvestInstruction(instr: ParsedInstruction): instr is ParsedInstruction & {
@@ -29,8 +31,8 @@ function isHarvestInstruction(instr: ParsedInstruction): instr is ParsedInstruct
   };
 } {
   return instr.program === 'spl-token' &&
-         typeof instr.parsed === 'object' &&
-         instr.parsed.type === 'harvestWithheldTokensToMint';
+    typeof instr.parsed === 'object' &&
+    instr.parsed.type === 'harvestWithheldTokensToMint';
 }
 
 function isWithdrawInstruction(instr: ParsedInstruction): instr is ParsedInstruction & {
@@ -44,17 +46,36 @@ function isWithdrawInstruction(instr: ParsedInstruction): instr is ParsedInstruc
   };
 } {
   return instr.program === 'spl-token' &&
-         typeof instr.parsed === 'object' &&
-         instr.parsed.type === 'withdrawWithheldTokensFromMint';
+    typeof instr.parsed === 'object' &&
+    instr.parsed.type === 'withdrawWithheldTokensFromMint';
+}
+
+function isWithdrawWithheldTokensFromAccountsInstruction(instr: ParsedInstruction): instr is ParsedInstruction & {
+  parsed: {
+    type: 'withdrawWithheldTokensFromAccounts';
+    info: {
+      mint: string;
+      withdrawWithheldAuthority: string;
+      feeRecipient: string;
+      sourceAccounts: string[];
+    };
+  }
+}{
+  return instr.program === 'spl-token' &&
+    typeof instr.parsed === 'object' &&
+    instr.parsed.type === 'withdrawWithheldTokensFromAccounts';
 }
 
 async function pollTransactions(): Promise<void> {
+  console.log('🔄 Gathering latest transactions...');
   const txs = await getTransactions(REWARDS_WALLET, MAX_SIGNATURES);
+  console.log(`Retrieved ${txs?.length} transactions`);
 
   for (const { signature } of txs) {
     if (knownSignatures.has(signature)) continue;
     knownSignatures.add(signature);
-
+    
+    console.log(`📦 Processing Transaction: ${signature}`);
     const tx = await getParsedTransaction(signature);
     if (!tx) continue;
 
@@ -80,32 +101,36 @@ async function pollTransactions(): Promise<void> {
           const amount_sol = lamports / SOLANA_DECIMALS;
           const tokenBalance = await getTokenBalance(destination, IMG_TOKEN_MINT);
 
-          console.log(`SOL Transfer: ${amount_sol} SOL to ${destination}, IMG Balance: ${tokenBalance}`);
+          console.log(`  SOL Transfer: ${amount_sol} SOL to ${destination}, IMG Balance: ${tokenBalance}`);
         } else if (isHarvestInstruction(instr)) {
           const { mint, sourceAccounts } = instr.parsed.info;
-          console.log(`SPL Fee Harvest → Mint: ${mint}, Sources: ${sourceAccounts.length}, Amount: ${tokenHarvestAmount.toFixed(6)}`);
+          console.log(`  SPL Fee Harvest → Mint: ${mint}, Sources: ${sourceAccounts.length}`);
         } else if (isWithdrawInstruction(instr)) {
           const { mint, feeRecipient, withdrawWithheldAuthority } = instr.parsed.info;
-          console.log(`SPL Fee Withdrawal → Mint: ${mint}, To: ${feeRecipient}, Authority: ${withdrawWithheldAuthority}, Amount: ${tokenHarvestAmount.toFixed(6)}`);
-        } else {
-        console.log(`Unknown instruction: ${JSON.stringify(instr)}`);
+          console.log(`  SPL Fee Withdrawal → Mint: ${mint}, To: ${feeRecipient}, Authority: ${withdrawWithheldAuthority}`);
+        } else if (isWithdrawWithheldTokensFromAccountsInstruction(instr)){
+          const { mint, feeRecipient, sourceAccounts, withdrawWithheldAuthority } = instr.parsed.info;
+          console.log(`  SPL Fee Withdrawal → Accounts: ${mint}, To: ${feeRecipient}, Authority: ${withdrawWithheldAuthority}, Sources: ${sourceAccounts.length}`);
+          
+        } else if (instr.programId.toBase58() === 'ComputeBudget111111111111111111111111111111') {
+          console.log('  ⚙️ ComputeBudget instruction detected (ignored)');
+        } 
+        else {
+          console.log(`  Unknown instruction: ${JSON.stringify(instr)}`);
         }
       } else {
-        console.log(`Unknown instruction: ${JSON.stringify(instr)}`);
+        console.log(`  Unknown transaction: ${JSON.stringify(instr)}`);
       }
     }
   }
 }
 
-setInterval(() => {
-  pollTransactions().catch(console.error);
-}, 15000);
+async function main() {
+  while (true) {
+    console.log('⏳ Monitoring SOL rewards and SPL fee harvests...');
+    await pollTransactions();
+    sleep(DELAY_IN_MILLISECONDS);
+  }
+}
 
-console.log('⏳ Monitoring SOL rewards and SPL fee harvests...');
-
-/**
- * TODO
- * 
- * 1.) Add .env for helius api key
- * 2.) don't use setInterval, use infinite while loop to make all calls syncronous
- */
+main();

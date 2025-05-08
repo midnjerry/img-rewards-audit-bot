@@ -10,6 +10,7 @@
     "dependencies": {
         "@solana/web3.js": "^1.91.0",
         "axios": "^1.6.8",
+        "dotenv": "^16.5.0",
         "sqlite3": "^5.1.6"
     },
     "devDependencies": {

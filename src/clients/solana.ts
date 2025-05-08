@@ -1,9 +1,10 @@
 import { ConfirmedSignatureInfo, Connection, ParsedTransactionWithMeta, PublicKey } from '@solana/web3.js';
-import { SOLANA_RPC } from '../constants';
+import { DELAY_IN_MILLISECONDS, SOLANA_RPC } from '../constants';
 import { sleep } from '../utils/helpers';
+import dotenv from 'dotenv';
+dotenv.config();
 
-const connection = new Connection(SOLANA_RPC, 'confirmed');
-const DELAY_IN_MILLISECONDS = 10000;
+const connection = new Connection(process.env.HELIUS_RPC_URL || SOLANA_RPC, 'confirmed');
 
 export async function getTransactions(walletAddress: string, limit = 10): Promise<Array<ConfirmedSignatureInfo>> {
   const pubkey = new PublicKey(walletAddress);
